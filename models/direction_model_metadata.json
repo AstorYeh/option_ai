@@ -1,27 +1,27 @@
 {
   "model_type": "XGBClassifier + Stacking Ensemble",
-  "train_date": "2026-02-14 21:05:12",
+  "train_date": "2026-02-14 21:53:13",
   "train_samples": 7763,
-  "num_features": 30,
+  "num_features": 60,
   "best_params": {
     "subsample": 0.8,
     "reg_lambda": 1.0,
-    "reg_alpha": 5.0,
+    "reg_alpha": 0.1,
     "n_estimators": 100,
     "min_child_weight": 7,
-    "max_depth": 4,
-    "learning_rate": 0.05,
-    "gamma": 0,
-    "colsample_bytree": 0.7
+    "max_depth": 5,
+    "learning_rate": 0.01,
+    "gamma": 0.1,
+    "colsample_bytree": 0.8
   },
   "cv_type": "TimeSeriesSplit",
   "cv_folds": 5,
-  "cv_score": 0.6221191028615622,
-  "train_accuracy": 0.6889089269612263,
-  "train_precision": 0.7089954051325217,
-  "train_recall": 0.6889089269612263,
-  "train_f1": 0.6560943161873168,
-  "overfit_gap": 0.06678982409966405,
+  "cv_score": 0.6204176334106729,
+  "train_accuracy": 0.6909699858302203,
+  "train_precision": 0.7450752248721442,
+  "train_recall": 0.6909699858302203,
+  "train_f1": 0.6480251818019088,
+  "overfit_gap": 0.07055235241954738,
   "has_lgbm": true,
   "excluded_price_cols": [
     "open",
@@ -36,83 +36,83 @@
   "feature_importance": [
     {
       "feature": "williams_r",
-      "importance": 0.2096850723028183
+      "importance": 0.1667802333831787
     },
     {
       "feature": "price_position",
-      "importance": 0.18633076548576355
-    },
-    {
-      "feature": "ma5_dev",
-      "importance": 0.04977801814675331
-    },
-    {
-      "feature": "ma60_dev",
-      "importance": 0.0484791062772274
-    },
-    {
-      "feature": "roc_5",
-      "importance": 0.044393304735422134
-    },
-    {
-      "feature": "atr_pct",
-      "importance": 0.03299170359969139
-    },
-    {
-      "feature": "volatility_ratio",
-      "importance": 0.032165464013814926
+      "importance": 0.11568138003349304
     },
     {
       "feature": "ma20_dev",
-      "importance": 0.03041585348546505
+      "importance": 0.05175851657986641
     },
     {
-      "feature": "volume_ratio_20",
-      "importance": 0.028040766716003418
+      "feature": "roc_5",
+      "importance": 0.04239924997091293
+    },
+    {
+      "feature": "ma60_dev",
+      "importance": 0.02691783756017685
     },
     {
       "feature": "bb_position",
-      "importance": 0.02537381462752819
+      "importance": 0.023970946669578552
     },
     {
-      "feature": "gap",
-      "importance": 0.024665703997015953
+      "feature": "top5_avg_return",
+      "importance": 0.021881623193621635
     },
     {
-      "feature": "roc_20",
-      "importance": 0.02325894683599472
+      "feature": "inst_total_net_oi",
+      "importance": 0.019513895735144615
     },
     {
-      "feature": "macd_pct",
-      "importance": 0.023093894124031067
-    },
-    {
-      "feature": "settlement_price",
-      "importance": 0.021783193573355675
-    },
-    {
-      "feature": "macd_histogram_pct",
-      "importance": 0.020043661817908287
-    },
-    {
-      "feature": "daily_return",
-      "importance": 0.019999517127871513
-    },
-    {
-      "feature": "macd_signal_pct",
-      "importance": 0.019390657544136047
+      "feature": "ma5_dev",
+      "importance": 0.019133780151605606
     },
     {
       "feature": "historical_volatility",
-      "importance": 0.01859986037015915
+      "importance": 0.01834002695977688
     },
     {
-      "feature": "roc_10",
-      "importance": 0.01833914965391159
+      "feature": "inst1_net_oi",
+      "importance": 0.01809529960155487
     },
     {
-      "feature": "rsi",
-      "importance": 0.017012039199471474
+      "feature": "volatility_ratio",
+      "importance": 0.017973730340600014
+    },
+    {
+      "feature": "tsmc_return",
+      "importance": 0.01793796755373478
+    },
+    {
+      "feature": "macd_histogram_pct",
+      "importance": 0.01679646037518978
+    },
+    {
+      "feature": "volume_ratio_20",
+      "importance": 0.0162974800914526
+    },
+    {
+      "feature": "macd_pct",
+      "importance": 0.016275765374302864
+    },
+    {
+      "feature": "us_tw_corr_20d",
+      "importance": 0.016246100887656212
+    },
+    {
+      "feature": "inst0_net_oi",
+      "importance": 0.015900010243058205
+    },
+    {
+      "feature": "atr_pct",
+      "importance": 0.015787821263074875
+    },
+    {
+      "feature": "overnight_gap_signal",
+      "importance": 0.015460629016160965
     }
   ]
 }

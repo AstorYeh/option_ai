@@ -1,6 +1,6 @@
 {
   "model_type": "SimpleMovingAverage",
-  "train_date": "2026-02-14 21:05:12",
+  "train_date": "2026-02-14 21:53:13",
   "train_mae": 0.8332319473154373,
   "note": "使用 5 日移動平均預測波動率"
 }

@@ -1,15 +1,15 @@
 {
-  "holding_days": 3.0,
-  "confidence_threshold": 0.7,
-  "stop_loss": 0.03,
-  "take_profit": 0.3,
-  "total_trades": 581.0,
-  "win_rate": 0.8123924268502581,
-  "avg_return": 0.21000421713439224,
-  "total_return": 122.0124501550819,
-  "sharpe_ratio": 1.495593091945872,
-  "max_drawdown": 0.06818830014381594,
-  "profit_factor": 58.345930316984955,
-  "calmar_ratio": 3.079769061429488,
-  "score": 0.7406933818103277
+  "holding_days": 5.0,
+  "confidence_threshold": 0.65,
+  "stop_loss": 0.02,
+  "take_profit": 0.2,
+  "total_trades": 333.0,
+  "win_rate": 0.9099099099099099,
+  "avg_return": 0.17989203489203484,
+  "total_return": 59.9040476190476,
+  "sharpe_ratio": 2.845880947439098,
+  "max_drawdown": 0.03959999999999999,
+  "profit_factor": 100.84007936507933,
+  "calmar_ratio": 4.542728153839265,
+  "score": 0.967032972972973
 }

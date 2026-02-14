@@ -14,6 +14,7 @@ from loguru import logger
 
 from src.data.database import Database
 from src.features.technical import add_all_technical_indicators
+from src.features.external import add_external_features
 
 def prepare_data():
     """準備訓練與測試資料"""
@@ -43,6 +44,13 @@ def prepare_data():
     # 計算技術指標
     logger.info("計算技術指標...")
     df = add_all_technical_indicators(df)
+    
+    # 加入外部因子 (美股/權值股/法人留倉)
+    logger.info("加入外部因子...")
+    try:
+        df = add_external_features(df)
+    except Exception as e:
+        logger.warning(f"外部因子載入失敗 (將繼續): {e}")
     
     # 填補缺失值而非移除
     logger.info("處理缺失值...")

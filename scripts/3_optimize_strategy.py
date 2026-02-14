@@ -187,9 +187,9 @@ def calculate_metrics(trades_df):
     trade_penalty = min(total_trades / MIN_TRADES, 1.0)
     
     score = (
-        win_rate * 0.25 +
-        min(sharpe_ratio / 3, 1) * 0.25 +
-        min(calmar_ratio / 5, 1) * 0.20 +
+        win_rate * 0.30 +
+        min(sharpe_ratio / 2.5, 1) * 0.20 +
+        min(calmar_ratio / 4, 1) * 0.20 +
         (1 - min(max_drawdown, 1)) * 0.15 +
         trade_penalty * 0.15
     ) * trade_penalty  # 交易次數不足時整體打折
@@ -221,8 +221,8 @@ def optimize_strategy():
     # 參數網格 (合理化, 符合選擇權真實交易)
     param_grid = {
         'holding_days': [1, 2, 3, 5],
-        'confidence_threshold': [0.55, 0.60, 0.65, 0.70],
-        'stop_loss': [0.03, 0.05, 0.08, 0.10],
+        'confidence_threshold': [0.55, 0.60, 0.65, 0.70, 0.75],
+        'stop_loss': [0.02, 0.03, 0.05, 0.08],
         'take_profit': [0.10, 0.15, 0.20, 0.30]
     }
     
