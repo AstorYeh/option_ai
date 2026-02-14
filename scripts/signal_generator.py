@@ -332,7 +332,7 @@ def recommend_strikes(current_price, direction, confidence, df):
 
 
 def determine_signal(prediction, risks):
-    """判定是否發出信號"""
+    """判定信號 - 所有結果都通知，標註信心度讓用戶自行判斷"""
     direction = prediction['final_direction']
     confidence = prediction['final_confidence']
     models_agree = prediction['models_agree']
@@ -343,38 +343,27 @@ def determine_signal(prediction, risks):
         'confidence': confidence,
         'models_agree': models_agree,
         'risk_level': risks['risk_level'],
-        'should_notify': False,
+        'should_notify': True,  # 永遠通知
         'reason': ''
     }
     
-    # 不交易條件
+    # 極端風險
     if not risks['should_trade']:
-        signal['reason'] = '極端風險, 暫停交易'
-        signal['should_notify'] = True  # 極端風險也要通知
+        signal['reason'] = '極端風險, 建議暫停交易'
         signal['action'] = 'WARNING'
         return signal
     
-    if direction == 'HOLD':
-        signal['reason'] = '模型預測盤整, 觀望'
-        return signal
-    
-    if confidence < CONFIDENCE_THRESHOLD:
-        signal['reason'] = f'信心度不足: {confidence:.1%} < {CONFIDENCE_THRESHOLD:.0%}'
-        return signal
-    
-    # 模型不一致 → 降低信心度
+    # 模型不一致提醒
     if not models_agree:
-        adjusted_confidence = confidence * 0.8
-        if adjusted_confidence < CONFIDENCE_THRESHOLD:
-            signal['reason'] = f'模型不一致, 調整後信心度 {adjusted_confidence:.1%} 不足'
-            return signal
-        signal['confidence'] = adjusted_confidence
         risks['warnings'].append("[!] XGBoost 與 LightGBM 預測不一致")
     
-    # 發出買入信號
-    signal['action'] = f'BUY_{direction}'
-    signal['should_notify'] = True
-    signal['reason'] = f'信心度 {confidence:.1%}, 模型{"一致" if models_agree else "不一致(已調整)"}'
+    if direction == 'HOLD':
+        signal['action'] = 'HOLD'
+        signal['reason'] = f'模型預測盤整 (信心度 {confidence:.1%})'
+    else:
+        signal['action'] = f'BUY_{direction}'
+        agree_str = '一致' if models_agree else '不一致'
+        signal['reason'] = f'信心度 {confidence:.1%}, 模型{agree_str}'
     
     return signal
 
@@ -395,10 +384,12 @@ def send_discord_signal(signal, prediction, risks, market_data, strike_info=None
             action_text = "Buy Call (看漲)"
         elif signal['action'] == 'BUY_PUT':
             color = 0xFF6600
-            title = "[SIGNAL] 選擇權買入信號 - PUT"
+            title = "[SIGNAL] 週選買入信號 - PUT"
             action_text = "Buy Put (看跌)"
-        else:
-            return  # HOLD 不通知
+        else:  # HOLD
+            color = 0xFFFF00
+            title = "[INFO] 每日市場分析"
+            action_text = f"觀望 - {signal['reason']}"
         
         # 風險等級標示
         risk_icons = {
@@ -635,29 +626,27 @@ def generate_signal():
     logger.info(f"  理由: {signal['reason']}")
     logger.info(f"  發送通知: {'YES' if signal['should_notify'] else 'NO'}")
     
-    # 6. 履約價建議 (只在有信號時計算)
+    # 6. 履約價建議 (所有情況都計算)
     strike_info = None
     if signal['action'] in ('BUY_CALL', 'BUY_PUT'):
         direction = signal['direction']
         strike_info = recommend_strikes(
             market_data['close'], direction, signal['confidence'], df
         )
-        
-        logger.info(f"\n[STRIKE] 週選履約價建議 ({direction}):")
-        logger.info(f"  ATM: {strike_info['atm_strike']:,}")
-        logger.info(f"  週化 ATR: {strike_info['weekly_atr']:.0f} 點")
-        for level, info in strike_info['strikes'].items():
-            logger.info(f"  [{level}] Strike {info['strike']:,} | "
-                       f"距離 {info['distance']:,} ({info['distance_pct']}%) | "
-                       f"命中率 {info['est_hit_rate']:.0f}%")
-    elif signal['action'] == 'HOLD':
-        # HOLD 時也顯示參考資訊
-        ref_strikes = recommend_strikes(
+    else:
+        # HOLD/WARNING 也計算參考履約價 (以 CALL 為基礎)
+        strike_info = recommend_strikes(
             market_data['close'], 'CALL', 0, df
         )
-        logger.info(f"\n[參考] ATM: {ref_strikes['atm_strike']:,} | "
-                   f"每日平均波動: {ref_strikes['avg_daily_move_pct']}% | "
-                   f"週化 ATR: {ref_strikes['weekly_atr']:.0f}")
+    
+    logger.info(f"\n[STRIKE] 週選參考:")
+    logger.info(f"  ATM: {strike_info['atm_strike']:,}")
+    logger.info(f"  週化 ATR: {strike_info['weekly_atr']:.0f} 點")
+    logger.info(f"  每日平均波動: {strike_info['avg_daily_move_pct']}%")
+    for level, info in strike_info['strikes'].items():
+        logger.info(f"  [{level}] Strike {info['strike']:,} | "
+                   f"距離 {info['distance']:,} ({info['distance_pct']}%) | "
+                   f"命中率 {info['est_hit_rate']:.0f}%")
     
     # 7. 記錄信號
     log_signal(signal, prediction, risks, market_data)
