@@ -1,15 +1,15 @@
 {
-  "total_trades": 15,
-  "win_rate": 0.8,
-  "avg_return": 0.1552849002849003,
-  "total_return": 2.3292735042735044,
-  "sharpe_ratio": 1.6757746792780228,
-  "max_drawdown": 0.03000000000000002,
-  "profit_factor": 33.93353474320241,
-  "calmar_ratio": 5.176163342830007,
-  "score": 0.5982359174548764,
-  "validation_date": "2026-02-14 21:00:17",
-  "test_samples": 190,
-  "overfitting_score": 0.38906736123364827,
-  "train_score": 0.9873032786885246
+  "total_trades": 211,
+  "win_rate": 0.8815165876777251,
+  "avg_return": 0.25862208934423786,
+  "total_return": 54.56926085163418,
+  "sharpe_ratio": 2.398199747968963,
+  "max_drawdown": 0.05910000000000006,
+  "profit_factor": 73.75901446884556,
+  "calmar_ratio": 4.376008279936338,
+  "score": 0.8864044571142985,
+  "validation_date": "2026-02-14 21:06:28",
+  "test_samples": 1941,
+  "overfitting_score": 0.14571107530397076,
+  "train_score": 0.7406933818103277
 }

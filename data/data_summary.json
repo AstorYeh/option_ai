@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-14 20:59:32",
-  "total_records": 947,
-  "train_records": 757,
-  "test_records": 190,
-  "train_date_range": "2025-11-17 00:00:00 ~ 2026-01-27 00:00:00",
-  "test_date_range": "2026-01-27 00:00:00 ~ 2026-02-11 00:00:00",
+  "timestamp": "2026-02-14 21:04:43",
+  "total_records": 9704,
+  "train_records": 7763,
+  "test_records": 1941,
+  "train_date_range": "2023-02-15 00:00:00 ~ 2025-07-25 00:00:00",
+  "test_date_range": "2025-07-25 00:00:00 ~ 2026-02-11 00:00:00",
   "num_features": 30,
   "feature_names": [
     "settlement_price",
