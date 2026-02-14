@@ -26,6 +26,7 @@ STOP_LOSS_PCT = 0.03          # 停損 3%
 TAKE_PROFIT_PCT = 0.30        # 停利 30%
 ATR_ANOMALY_RATIO = 2.0       # ATR 異常倍數
 LOOKBACK_DAYS = 60            # 風險檢查回看天數
+STRIKE_INTERVAL = 50          # 週選履約價間距 (點)
 
 
 def load_models():
@@ -75,21 +76,21 @@ def get_latest_data():
         logger.error(f"資料不足: {len(df)} 筆")
         return None
     
-    # 計算技術指標
+    # 先過濾異常資料
+    df = df[(df['close'] > 0) & (df['volume'] > 0)]
+    
+    # 每日只保留主力合約 (交易量最大者) — 必須在技術指標計算之前
+    df = df.loc[df.groupby('date')['volume'].idxmax()]
+    df = df.sort_values('date').reset_index(drop=True)
+    
+    # 在乾淨的主力合約資料上計算技術指標
     df = add_all_technical_indicators(df)
     
-    # 使用與 prepare_data 一致的缺失值處理
+    # 處理缺失值
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     df[numeric_cols] = df[numeric_cols].ffill().bfill().fillna(0)
     df = df.replace([np.inf, -np.inf], np.nan)
     df[numeric_cols] = df[numeric_cols].fillna(0)
-    
-    # 過濾異常資料 (close=0 或 volume=0)
-    df = df[(df['close'] > 0) & (df['volume'] > 0)]
-    
-    # 每日只保留主力合約 (交易量最大者)
-    df = df.loc[df.groupby('date')['volume'].idxmax()]
-    df = df.sort_values('date').reset_index(drop=True)
     
     logger.info(f"[OK] 資料載入: {len(df)} 筆, 最新日期: {df['date'].max()}")
     return df
@@ -229,6 +230,107 @@ def check_risks(df):
     return risks
 
 
+def recommend_strikes(current_price, direction, confidence, df):
+    """
+    推薦週選履約價
+    
+    Args:
+        current_price: 當前台指期價格
+        direction: CALL 或 PUT
+        confidence: 模型信心度
+        df: 歷史資料 (for ATR/波動率計算)
+    
+    Returns:
+        dict with strike recommendations for 3 levels
+    """
+    # 計算歷史波動幅度
+    recent = df.tail(60)
+    daily_returns = recent['close'].pct_change().dropna()
+    avg_daily_move = daily_returns.abs().mean()  # 平均每日絕對波動
+    std_daily_move = daily_returns.std()
+    
+    # 週選持有期間 (5 個交易日)
+    holding_days = 5
+    expected_move_pct = avg_daily_move * np.sqrt(holding_days)  # 預期一週波動
+    expected_move_pts = current_price * expected_move_pct
+    
+    # ATR 基磎移動脚悳
+    if 'atr' in df.columns:
+        atr = df.iloc[-1]['atr']
+        weekly_atr = atr * np.sqrt(holding_days)
+    else:
+        weekly_atr = expected_move_pts
+    
+    # 取較大值作為參考
+    ref_move = max(expected_move_pts, weekly_atr)
+    
+    # 履約價對齊到 STRIKE_INTERVAL 的倍數
+    atm_strike = round(current_price / STRIKE_INTERVAL) * STRIKE_INTERVAL
+    
+    # 三檔履約價推薦
+    strikes = {}
+    
+    if direction == 'CALL':
+        # 保守: 價內 1~2 檔 (ITM/ATM), 成本高但勝率高
+        conservative_strike = atm_strike
+        # 穩健: 價外 2~4 檔, 中等成本
+        moderate_offset = round(ref_move * 0.3 / STRIKE_INTERVAL) * STRIKE_INTERVAL
+        moderate_offset = max(moderate_offset, STRIKE_INTERVAL * 2)  # 至少 100 點
+        moderate_strike = atm_strike + moderate_offset
+        # 積極: 價外 5~8 檔, 低成本高槓桿 (樂透式)
+        aggressive_offset = round(ref_move * 0.7 / STRIKE_INTERVAL) * STRIKE_INTERVAL
+        aggressive_offset = max(aggressive_offset, STRIKE_INTERVAL * 5)  # 至少 250 點
+        aggressive_strike = atm_strike + aggressive_offset
+    else:  # PUT
+        conservative_strike = atm_strike
+        moderate_offset = round(ref_move * 0.3 / STRIKE_INTERVAL) * STRIKE_INTERVAL
+        moderate_offset = max(moderate_offset, STRIKE_INTERVAL * 2)
+        moderate_strike = atm_strike - moderate_offset
+        aggressive_offset = round(ref_move * 0.7 / STRIKE_INTERVAL) * STRIKE_INTERVAL
+        aggressive_offset = max(aggressive_offset, STRIKE_INTERVAL * 5)
+        aggressive_strike = atm_strike - aggressive_offset
+    
+    # 距離計算
+    for level, strike, desc in [
+        ('conservative', conservative_strike, '保守 (ATM/價內)'),
+        ('moderate', moderate_strike, '穩健 (OTM)'),
+        ('aggressive', aggressive_strike, '積極 (Deep OTM)'),
+    ]:
+        distance = abs(strike - current_price)
+        distance_pct = distance / current_price * 100
+        
+        # 粗略估算成為價內機率 (based on historical move distribution)
+        if direction == 'CALL':
+            # CALL 的目標: 價格要漲超過 strike
+            target_move_pct = (strike - current_price) / current_price
+        else:
+            # PUT 的目標: 價格要跌破 strike
+            target_move_pct = (current_price - strike) / current_price
+        
+        # 用歷史統計估算機率
+        weekly_returns = daily_returns.rolling(holding_days).sum().dropna()
+        if direction == 'CALL':
+            hit_rate = (weekly_returns > target_move_pct).mean()
+        else:
+            hit_rate = (weekly_returns < -target_move_pct).mean()
+        
+        strikes[level] = {
+            'strike': int(strike),
+            'description': desc,
+            'distance': int(distance),
+            'distance_pct': round(distance_pct, 2),
+            'est_hit_rate': round(float(hit_rate) * 100, 1),
+        }
+    
+    return {
+        'strikes': strikes,
+        'atm_strike': int(atm_strike),
+        'ref_move': round(ref_move, 0),
+        'weekly_atr': round(weekly_atr, 0),
+        'avg_daily_move_pct': round(avg_daily_move * 100, 2),
+    }
+
+
 def determine_signal(prediction, risks):
     """判定是否發出信號"""
     direction = prediction['final_direction']
@@ -277,7 +379,7 @@ def determine_signal(prediction, risks):
     return signal
 
 
-def send_discord_signal(signal, prediction, risks, market_data):
+def send_discord_signal(signal, prediction, risks, market_data, strike_info=None):
     """發送 Discord 通知"""
     try:
         notifier = DiscordNotifier()
@@ -316,29 +418,6 @@ def send_discord_signal(signal, prediction, risks, market_data):
         
         # 停損停利建議
         close_price = market_data.get('close', 0)
-        if signal['action'] == 'BUY_CALL':
-            sl_price = close_price * (1 - STOP_LOSS_PCT)
-            tp_price = close_price * (1 + TAKE_PROFIT_PCT)
-        else:
-            sl_price = close_price * (1 + STOP_LOSS_PCT)
-            tp_price = close_price * (1 - TAKE_PROFIT_PCT)
-        
-        sl_tp_text = (
-            f"停損: {STOP_LOSS_PCT:.0%} (約 {sl_price:,.0f})\n"
-            f"停利: {TAKE_PROFIT_PCT:.0%} (約 {tp_price:,.0f})\n"
-            f"建議持有: 3 天"
-        )
-        
-        # 風險警告
-        warning_text = "\n".join(risks['warnings']) if risks['warnings'] else "無特殊風險"
-        
-        # ATR 狀態
-        atr_status_map = {
-            'NORMAL': '[OK] 正常',
-            'HIGH': '[!] 偏高',
-            'EXTREME': '[!!] 異常'
-        }
-        atr_text = atr_status_map.get(risks['atr_status'], 'N/A')
         
         embed = {
             "title": title,
@@ -348,7 +427,7 @@ def send_discord_signal(signal, prediction, risks, market_data):
                 {
                     "name": "[Market] 台指期現況",
                     "value": (
-                        f"收盤: {market_data.get('close', 'N/A'):,.0f}\n"
+                        f"收盤: {close_price:,.0f}\n"
                         f"漲跌: {market_data.get('change', 0):+.0f} ({market_data.get('change_pct', 0):+.2f}%)\n"
                         f"成交量: {market_data.get('volume', 0):,.0f}"
                     ),
@@ -360,29 +439,9 @@ def send_discord_signal(signal, prediction, risks, market_data):
                     "inline": True
                 },
                 {
-                    "name": "[CHECK] 模型一致性",
-                    "value": agree_text,
+                    "name": "[CHECK] 一致性 / 信心度",
+                    "value": f"{agree_text}\n信心度: {signal['confidence']:.1%}",
                     "inline": True
-                },
-                {
-                    "name": "[RISK] 風險等級",
-                    "value": risk_text,
-                    "inline": True
-                },
-                {
-                    "name": "[ATR] 波動率狀態",
-                    "value": atr_text,
-                    "inline": True
-                },
-                {
-                    "name": "[CONF] 信心度",
-                    "value": f"{signal['confidence']:.1%}",
-                    "inline": True
-                },
-                {
-                    "name": "[SL/TP] 停損停利建議",
-                    "value": sl_tp_text,
-                    "inline": False
                 },
             ],
             "footer": {
@@ -390,18 +449,83 @@ def send_discord_signal(signal, prediction, risks, market_data):
             }
         }
         
-        # 加入風險警告 (若有)
+        # 履約價建議 (核心欄位)
+        if strike_info and signal['action'] != 'WARNING':
+            strikes = strike_info['strikes']
+            direction = signal['direction']
+            cons = strikes['conservative']
+            mod = strikes['moderate']
+            agg = strikes['aggressive']
+            
+            embed["fields"].extend([
+                {
+                    "name": f"[A] 保守 {direction} {cons['strike']:,}",
+                    "value": (
+                        f"距離: {cons['distance']:,} 點 ({cons['distance_pct']:.1f}%)\n"
+                        f"歷史命中率: {cons['est_hit_rate']:.0f}%\n"
+                        f"特性: 成本高/勝率高"
+                    ),
+                    "inline": True
+                },
+                {
+                    "name": f"[B] 穩健 {direction} {mod['strike']:,}",
+                    "value": (
+                        f"距離: {mod['distance']:,} 點 ({mod['distance_pct']:.1f}%)\n"
+                        f"歷史命中率: {mod['est_hit_rate']:.0f}%\n"
+                        f"特性: 中等成本/中等勝率"
+                    ),
+                    "inline": True
+                },
+                {
+                    "name": f"[C] 積極 {direction} {agg['strike']:,}",
+                    "value": (
+                        f"距離: {agg['distance']:,} 點 ({agg['distance_pct']:.1f}%)\n"
+                        f"歷史命中率: {agg['est_hit_rate']:.0f}%\n"
+                        f"特性: 低成本/高槓桿"
+                    ),
+                    "inline": True
+                },
+                {
+                    "name": "[VOL] 波動參考",
+                    "value": (
+                        f"ATM: {strike_info['atm_strike']:,}\n"
+                        f"週化 ATR: {strike_info['weekly_atr']:.0f} 點\n"
+                        f"每日平均波動: {strike_info['avg_daily_move_pct']}%"
+                    ),
+                    "inline": True
+                },
+            ])
+        
+        # 風險 + 操作建議
+        embed["fields"].append({
+            "name": "[RISK] 風險等級",
+            "value": risk_text,
+            "inline": True
+        })
+        
+        if signal['action'] != 'WARNING':
+            embed["fields"].append({
+                "name": "[SL/TP] 週選操作建議",
+                "value": (
+                    "停損: 最多虧損 50% 權利金\n"
+                    "停利: 獲利 100~300% 分批出場\n"
+                    "持有: 週選到期前 1~2 天"
+                ),
+                "inline": True
+            })
+        
+        # 風險警告
         if risks['warnings']:
             embed["fields"].append({
                 "name": "[WARN] 風險警告",
-                "value": warning_text,
+                "value": "\n".join(risks['warnings']),
                 "inline": False
             })
         
         # 免責聲明
         embed["fields"].append({
             "name": "[NOTE] 免責聲明",
-            "value": "本信號僅供參考, 不構成投資建議。選擇權交易具高風險, 請自行評估。",
+            "value": "樂透式週選交易, 僅供參考。請以可承受虐損金額操作。",
             "inline": False
         })
         
@@ -511,13 +635,37 @@ def generate_signal():
     logger.info(f"  理由: {signal['reason']}")
     logger.info(f"  發送通知: {'YES' if signal['should_notify'] else 'NO'}")
     
-    # 6. 記錄信號
+    # 6. 履約價建議 (只在有信號時計算)
+    strike_info = None
+    if signal['action'] in ('BUY_CALL', 'BUY_PUT'):
+        direction = signal['direction']
+        strike_info = recommend_strikes(
+            market_data['close'], direction, signal['confidence'], df
+        )
+        
+        logger.info(f"\n[STRIKE] 週選履約價建議 ({direction}):")
+        logger.info(f"  ATM: {strike_info['atm_strike']:,}")
+        logger.info(f"  週化 ATR: {strike_info['weekly_atr']:.0f} 點")
+        for level, info in strike_info['strikes'].items():
+            logger.info(f"  [{level}] Strike {info['strike']:,} | "
+                       f"距離 {info['distance']:,} ({info['distance_pct']}%) | "
+                       f"命中率 {info['est_hit_rate']:.0f}%")
+    elif signal['action'] == 'HOLD':
+        # HOLD 時也顯示參考資訊
+        ref_strikes = recommend_strikes(
+            market_data['close'], 'CALL', 0, df
+        )
+        logger.info(f"\n[參考] ATM: {ref_strikes['atm_strike']:,} | "
+                   f"每日平均波動: {ref_strikes['avg_daily_move_pct']}% | "
+                   f"週化 ATR: {ref_strikes['weekly_atr']:.0f}")
+    
+    # 7. 記錄信號
     log_signal(signal, prediction, risks, market_data)
     
-    # 7. 發送 Discord 通知 (若需要)
+    # 8. 發送 Discord 通知 (若需要)
     if signal['should_notify']:
         logger.info("\n[NOTIFY] 發送 Discord 通知...")
-        send_discord_signal(signal, prediction, risks, market_data)
+        send_discord_signal(signal, prediction, risks, market_data, strike_info)
     else:
         logger.info("\n[SKIP] 未觸發通知條件")
     
