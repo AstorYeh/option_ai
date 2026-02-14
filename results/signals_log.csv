@@ -1,0 +1,3 @@
+timestamp,date,close,action,direction,confidence,models_agree,risk_level,xgb_direction,xgb_confidence,lgbm_direction,lgbm_confidence,atr_status,warnings,reason
+2026-02-14 21:16:31,2026-02-11 00:00:00,33691.0,HOLD,HOLD,0.6481205893558551,True,HIGH,HOLD,0.6507038474082947,HOLD,0.6933450431294212,NORMAL,[!] 跳空 66598.0%: 前收 50 -> 今開 33349,"模型預測盤整, 觀望"
+2026-02-14 21:17:05,2026-02-11 00:00:00,33691.0,HOLD,HOLD,0.6481205893558551,True,LOW,HOLD,0.6507038474082947,HOLD,0.6933450431294212,NORMAL,,"模型預測盤整, 觀望"
