@@ -1,0 +1,15 @@
+{
+  "holding_days": 5.0,
+  "confidence_threshold": 0.6,
+  "stop_loss": 0.03,
+  "take_profit": 0.2,
+  "total_trades": 61.0,
+  "win_rate": 0.9672131147540983,
+  "avg_return": 0.19245901639344257,
+  "total_return": 11.739999999999997,
+  "sharpe_ratio": 4.660258045850447,
+  "max_drawdown": 0.030000000000000065,
+  "profit_factor": 196.66666666666663,
+  "calmar_ratio": 6.415300546448072,
+  "score": 0.9873032786885246
+}

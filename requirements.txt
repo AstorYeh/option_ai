@@ -1,0 +1,44 @@
+# 核心依賴
+python-dotenv
+pandas
+numpy
+
+# 資料來源
+FinMind
+requests
+
+# 資料庫
+sqlalchemy
+
+# 機器學習
+scikit-learn
+xgboost
+
+# 選擇權定價
+py_vollib
+scipy
+
+# Web 框架
+streamlit
+plotly
+
+# LLM 整合
+ollama
+
+# 通知系統
+discord-webhook
+
+# 工具
+python-dateutil
+pytz
+tqdm
+
+# 測試
+pytest
+
+# 日誌
+loguru
+
+# 資料視覺化
+matplotlib
+seaborn

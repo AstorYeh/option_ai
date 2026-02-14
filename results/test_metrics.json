@@ -1,0 +1,15 @@
+{
+  "total_trades": 15,
+  "win_rate": 0.8,
+  "avg_return": 0.1552849002849003,
+  "total_return": 2.3292735042735044,
+  "sharpe_ratio": 1.6757746792780228,
+  "max_drawdown": 0.03000000000000002,
+  "profit_factor": 33.93353474320241,
+  "calmar_ratio": 5.176163342830007,
+  "score": 0.5982359174548764,
+  "validation_date": "2026-02-14 21:00:17",
+  "test_samples": 190,
+  "overfitting_score": 0.38906736123364827,
+  "train_score": 0.9873032786885246
+}
